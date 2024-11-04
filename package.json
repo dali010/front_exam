@@ -2,7 +2,7 @@
   "name": "mern-stack-client",
   "version": "0.1.0",
   "private": true,
-  "proxy": "http://a31812fe80d794da1930ab27667bb80c-1424588976.us-east-1.elb.amazonaws.com:5000",
+  "proxy": "http://abb32d8206946408899b8ec9f24681f7-791306488.us-east-1.elb.amazonaws.com:5000",
   "dependencies": {
     "@material-ui/core": "^4.9.10",
     "@material-ui/icons": "^4.9.1",
