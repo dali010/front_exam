@@ -1,0 +1,74 @@
+pipeline {
+    environment {
+        registryCredential = 'dockerhub_dali'
+        IMAGE_NAME = 'dalihmida01/front'
+        PUSH_SUCCESS = 'false'  // Initialize as string
+    }
+    agent any
+    stages {
+        stage('Cloning Git') {
+            steps {
+                checkout scm
+            }
+        }
+        stage('Building image') {
+            steps {
+                script {
+                    docker.build("${IMAGE_NAME}:${env.BUILD_NUMBER}", "--platform linux/amd64 .")
+                }
+            }
+        }
+        stage('Vulnerability Scan') {
+            steps {
+                script {
+                    sh "trivy image --severity HIGH,CRITICAL ${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                }
+            }
+        }
+        stage('Deploy Image') {
+            steps {
+                script {
+                    try {
+                        docker.withRegistry('', registryCredential) {
+                            docker.image("${IMAGE_NAME}:${env.BUILD_NUMBER}").push()
+                            // Set the environment variable
+                            sh "echo 'true' > .push_success"
+                        }
+                    } catch (Exception e) {
+                        echo "Image push failed: ${e.getMessage()}"
+                        sh "echo 'false' > .push_success"
+                        error("Failed to push image to registry")
+                    }
+                }
+            }
+        }
+        stage('Delete Image') {
+            steps {
+                script {
+                    def pushSuccess = sh(script: 'cat .push_success', returnStdout: true).trim()
+                    echo "Push success value: ${pushSuccess}"
+                    
+                    if (pushSuccess == 'true') {
+                        echo "Attempting to delete image ${IMAGE_NAME}:${env.BUILD_NUMBER}"
+                        try {
+                            sh """
+                                docker rmi ${IMAGE_NAME}:${env.BUILD_NUMBER} || true
+                                echo "Successfully deleted image"
+                            """
+                        } catch (Exception e) {
+                            echo "Warning: Failed to delete local image: ${e.getMessage()}"
+                        }
+                    } else {
+                        echo "Skipping image deletion as push was not successful"
+                    }
+                }
+            }
+        }
+ 
+    }
+    post {
+        always {
+            cleanWs()
+        }
+    }
+}
